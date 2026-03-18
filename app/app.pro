@@ -20,12 +20,14 @@ DESTDIR = $$OUT_PWD/../
 HEADERS += \
     fileio.h \
     fontmanager.h \
-    fontlistmodel.h
+    fontlistmodel.h \
+    curvatureinputfilter.h
 
 SOURCES += main.cpp \
     fileio.cpp \
     fontmanager.cpp \
-    fontlistmodel.cpp
+    fontlistmodel.cpp \
+    curvatureinputfilter.cpp
 
 macx:ICON = icons/crt.icns
 

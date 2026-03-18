@@ -51,6 +51,8 @@ QtObject {
     property real bloomQuality: 0.5
     property real burnInQuality: 0.5
 
+    property real windowCurvature: 0.0
+
     property bool blinkingCursor: false
 
 
@@ -167,7 +169,8 @@ QtObject {
             "bloomQuality": bloomQuality,
             "burnInQuality": burnInQuality,
             "useCustomCommand": useCustomCommand,
-            "customCommand": customCommand
+            "customCommand": customCommand,
+            "windowCurvature": windowCurvature
         }
         return stringify(settings)
     }
@@ -260,6 +263,7 @@ QtObject {
                 !== undefined ? settings.useCustomCommand : useCustomCommand
         customCommand = settings.customCommand
                 !== undefined ? settings.customCommand : customCommand
+        windowCurvature = settings.windowCurvature !== undefined ? settings.windowCurvature : windowCurvature
     }
 
     function loadProfileString(profileString) {

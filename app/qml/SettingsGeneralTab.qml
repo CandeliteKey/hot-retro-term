@@ -234,6 +234,13 @@ ColumnLayout {
                 value: appSettings.windowOpacity
                 visible: !appSettings.isMacOS
             }
+            Label {
+                text: qsTr("Window Curvature")
+            }
+            SimpleSlider {
+                onValueChanged: appSettings.windowCurvature = value
+                value: appSettings.windowCurvature
+            }
         }
     }
 

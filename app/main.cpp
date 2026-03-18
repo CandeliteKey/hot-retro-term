@@ -21,6 +21,7 @@
 #include <fileio.h>
 #include <fontlistmodel.h>
 #include <fontmanager.h>
+#include <curvatureinputfilter.h>
 
 #if defined(Q_OS_MAC)
 #include <CoreFoundation/CoreFoundation.h>
@@ -103,6 +104,7 @@ int main(int argc, char *argv[])
 
     qmlRegisterType<FontManager>("CoolRetroTerm", 1, 0, "FontManager");
     qmlRegisterUncreatableType<FontListModel>("CoolRetroTerm", 1, 0, "FontListModel", "FontListModel is created by FontManager");
+    qmlRegisterType<CurvatureInputFilter>("CoolRetroTerm", 1, 0, "CurvatureInputFilter");
 
 #if !defined(Q_OS_MAC)
     app.setWindowIcon(QIcon::fromTheme("cool-retro-term", QIcon(":../icons/32x32/cool-retro-term.png")));
