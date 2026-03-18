@@ -26,6 +26,7 @@ public:
     explicit FontManager(QObject *parent = nullptr);
 
     Q_INVOKABLE void refresh();
+    Q_INVOKABLE void emitCurrentFont();
 
     FontListModel *fontList();
     FontListModel *filteredFontList();
@@ -106,6 +107,15 @@ private:
 
     QHash<QString, QString> m_loadedFamilies;
     QSet<QString> m_bundledFamilies;
+
+    QString m_cachedFontFamily;
+    int m_cachedPixelSize = 0;
+    int m_cachedLineSpacing = 0;
+    qreal m_cachedScreenScaling = 1.0;
+    qreal m_cachedFontWidth = 1.0;
+    QString m_cachedFallbackFontFamily;
+    bool m_cachedLowResolutionFont = false;
+    bool m_fontCacheValid = false;
 };
 
 #endif // FONTMANAGER_H

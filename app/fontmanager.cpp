@@ -519,6 +519,15 @@ void FontManager::updateComputedFont()
         emit lowResolutionFontChanged();
     }
 
+    m_cachedFontFamily = fontFamily;
+    m_cachedPixelSize = pixelSize;
+    m_cachedLineSpacing = lineSpacing;
+    m_cachedScreenScaling = screenScaling;
+    m_cachedFontWidth = fontWidth;
+    m_cachedFallbackFontFamily = fallbackFontFamily;
+    m_cachedLowResolutionFont = font->lowResolutionFont;
+    m_fontCacheValid = true;
+
     emit terminalFontChanged(fontFamily,
                              pixelSize,
                              lineSpacing,
@@ -526,6 +535,21 @@ void FontManager::updateComputedFont()
                              fontWidth,
                              fallbackFontFamily,
                              font->lowResolutionFont);
+}
+
+void FontManager::emitCurrentFont()
+{
+    if (m_fontCacheValid) {
+        emit terminalFontChanged(m_cachedFontFamily,
+                                 m_cachedPixelSize,
+                                 m_cachedLineSpacing,
+                                 m_cachedScreenScaling,
+                                 m_cachedFontWidth,
+                                 m_cachedFallbackFontFamily,
+                                 m_cachedLowResolutionFont);
+    } else {
+        updateComputedFont();
+    }
 }
 
 const FontEntry *FontManager::findFontByName(const QString &name) const
