@@ -27,6 +27,12 @@ ShaderTerminal {
     property alias terminalSize: terminal.terminalSize
     property bool isActive: false
     signal sessionFinished()
+    signal tabClicked(int index)
+    signal addTabClicked()
+
+    property int tabCount: 0
+    property int activeTabIndex: 0
+    property var tabTitles: []
 
     property bool loadBloomEffect: appSettings.bloom > 0 || appSettings._frameShininess > 0
 
@@ -47,6 +53,11 @@ ShaderTerminal {
         anchors.fill: parent
         isActive: mainShader.isActive
         onSessionFinished: mainShader.sessionFinished()
+        tabCount: mainShader.tabCount
+        activeTabIndex: mainShader.activeTabIndex
+        tabTitles: mainShader.tabTitles
+        onTabClicked: function(idx) { mainShader.tabClicked(idx) }
+        onAddTabClicked: mainShader.addTabClicked()
     }
 
     function activate() {

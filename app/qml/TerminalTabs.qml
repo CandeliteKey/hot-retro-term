@@ -21,15 +21,31 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQml.Models
+import Qt5Compat.GraphicalEffects
+import CoolRetroTerm 1.0
 
 Item {
     id: tabsRoot
 
     readonly property int innerPadding: 6
     readonly property string currentTitle: tabsModel.get(currentIndex).title ?? "cool-retro-term"
-    property alias currentIndex: tabBar.currentIndex
+    property int currentIndex: 0
     readonly property int count: tabsModel.count
     property size terminalSize: Qt.size(0, 0)
+
+    readonly property int tabWidth: 160
+    readonly property int tabBarHeight: 28
+    property real scrollTargetX: 0
+
+    property int titleRevision: 0
+
+    function collectTitles() {
+        titleRevision; // binding dependency — incremented on title changes
+        var titles = []
+        for (var i = 0; i < tabsModel.count; i++)
+            titles.push(tabsModel.get(i).title || "cool-retro-term")
+        return titles
+    }
 
     function normalizeTitle(rawTitle) {
         if (rawTitle === undefined || rawTitle === null) {
@@ -40,7 +56,7 @@ Item {
 
     function addTab() {
         tabsModel.append({ title: "" })
-        tabBar.currentIndex = tabsModel.count - 1
+        tabsRoot.currentIndex = tabsModel.count - 1
     }
 
     function closeTab(index) {
@@ -50,8 +66,20 @@ Item {
         }
 
         tabsModel.remove(index)
-        tabBar.currentIndex = Math.min(tabBar.currentIndex, tabsModel.count - 1)
+        tabsRoot.currentIndex = Math.min(tabsRoot.currentIndex, tabsModel.count - 1)
     }
+
+    function ensureTabVisible(idx) {
+        var x = idx * tabWidth
+        if (x < scrollTargetX) {
+            scrollTargetX = x
+        } else if (x + tabWidth > scrollTargetX + tabsFlickable.width) {
+            scrollTargetX = x + tabWidth - tabsFlickable.width
+        }
+        tabsFlickable.contentX = scrollTargetX
+    }
+
+    onCurrentIndexChanged: ensureTabVisible(currentIndex)
 
     ListModel {
         id: tabsModel
@@ -59,64 +87,232 @@ Item {
 
     Component.onCompleted: addTab()
 
+    CurvatureInputFilter {
+        targetItem: contentColumn
+        curvature: appSettings.windowCurvature > 0
+            ? appSettings.windowCurvature * appSettings.screenCurvatureSize * (1024 / (0.5 * contentColumn.width + 0.5 * contentColumn.height))
+            : 0
+    }
+
     ColumnLayout {
+        id: contentColumn
         anchors.fill: parent
         spacing: 0
+
+        layer.enabled: appSettings.windowCurvature > 0
+        layer.effect: ShaderEffect {
+            property real screenCurvature: appSettings.windowCurvature * appSettings.screenCurvatureSize * (1024 / (0.5 * width + 0.5 * height))
+            vertexShader: "qrc:/shaders/window_curvature.vert.qsb"
+            fragmentShader: "qrc:/shaders/window_curvature.frag.qsb"
+        }
 
         Rectangle {
             id: tabRow
             Layout.fillWidth: true
-            height: rowLayout.implicitHeight
-            color: palette.window
-            visible: tabsModel.count > 1
+            Layout.preferredHeight: 0
+            height: 0
+            color: appSettings.backgroundColor
+            visible: false
 
             RowLayout {
-                id: rowLayout
                 anchors.fill: parent
                 spacing: 0
 
-                TabBar {
-                    id: tabBar
+                Flickable {
+                    id: tabsFlickable
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    focusPolicy: Qt.NoFocus
+                    flickableDirection: Flickable.HorizontalFlick
+                    boundsBehavior: Flickable.StopAtBounds
+                    clip: true
+                    contentWidth: tabsContainer.width
+                    contentHeight: height
+                    interactive: false
 
-                    Repeater {
-                        model: tabsModel
-                        TabButton {
-                            id: tabButton
-                            contentItem: RowLayout {
-                                anchors.fill: parent
-                                anchors { leftMargin: innerPadding; rightMargin: innerPadding }
-                                spacing: innerPadding
+                    Behavior on contentX {
+                        SmoothedAnimation { velocity: 1600; duration: -1 }
+                    }
 
-                                Label {
-                                    text: model.title
-                                    elide: Text.ElideRight
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignVCenter
+                    Item {
+                        id: tabsContainer
+                        width: Math.max(tabsFlickable.width, tabsModel.count * tabWidth)
+                        height: tabBarHeight
+
+                        property int draggingIndex: -1
+                        property real draggingX: 0
+
+                        Repeater {
+                            model: tabsModel
+
+                            Item {
+                                id: tabDelegate
+                                width: tabWidth
+                                height: tabBarHeight
+
+                                property bool isCurrentTab: index === tabsRoot.currentIndex
+                                property bool isDragging: tabsContainer.draggingIndex === index
+
+                                property real baseX: {
+                                    if (tabsContainer.draggingIndex < 0 || index === tabsContainer.draggingIndex)
+                                        return index * tabWidth
+                                    var di = tabsContainer.draggingIndex
+                                    var targetIdx = Math.max(0, Math.min(tabsModel.count - 1,
+                                                             Math.round(tabsContainer.draggingX / tabWidth)))
+                                    if (di < targetIdx) {
+                                        if (index > di && index <= targetIdx)
+                                            return (index - 1) * tabWidth
+                                    } else if (di > targetIdx) {
+                                        if (index >= targetIdx && index < di)
+                                            return (index + 1) * tabWidth
+                                    }
+                                    return index * tabWidth
                                 }
 
-                                ToolButton {
+                                x: isDragging ? tabsContainer.draggingX : baseX
+
+                                Behavior on x {
+                                    enabled: !tabDelegate.isDragging
+                                    NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+                                }
+
+                                z: isDragging ? 10 : 1
+
+                                Rectangle {
+                                    id: tabBg
+                                    anchors.fill: parent
+                                    anchors.margins: 2
+                                    color: isCurrentTab
+                                        ? Qt.rgba(appSettings.fontColor.r, appSettings.fontColor.g, appSettings.fontColor.b, 0.15)
+                                        : "transparent"
+                                    border.color: Qt.rgba(appSettings.fontColor.r, appSettings.fontColor.g, appSettings.fontColor.b,
+                                                          isCurrentTab ? 1.0 : 0.35)
+                                    border.width: 1
+
+                                    layer.enabled: isCurrentTab
+                                    layer.effect: Glow {
+                                        radius: 6
+                                        samples: 13
+                                        color: appSettings.fontColor
+                                        spread: 0.1
+                                    }
+                                }
+
+                                Label {
+                                    anchors.left: parent.left
+                                    anchors.right: closeBtn.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: innerPadding
+                                    anchors.rightMargin: 2
+                                    text: model.title || "cool-retro-term"
+                                    elide: Text.ElideRight
+                                    color: Qt.rgba(appSettings.fontColor.r, appSettings.fontColor.g, appSettings.fontColor.b,
+                                                   isCurrentTab ? 1.0 : 0.5)
+                                    font.pixelSize: 11
+                                    font.family: "monospace"
+                                }
+
+                                Text {
+                                    id: closeBtn
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.rightMargin: innerPadding
                                     text: "\u00d7"
-                                    focusPolicy: Qt.NoFocus
-                                    padding: innerPadding
-                                    Layout.alignment: Qt.AlignVCenter
-                                    onClicked: tabsRoot.closeTab(index)
+                                    color: Qt.rgba(appSettings.fontColor.r, appSettings.fontColor.g, appSettings.fontColor.b,
+                                                   closeBtnArea.containsMouse ? 1.0 : (isCurrentTab ? 0.8 : 0.4))
+                                    font.pixelSize: 13
+                                    font.family: "monospace"
+
+                                    MouseArea {
+                                        id: closeBtnArea
+                                        anchors.fill: parent
+                                        anchors.margins: -4
+                                        hoverEnabled: true
+                                        onClicked: tabsRoot.closeTab(index)
+                                    }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    anchors.rightMargin: closeBtn.width + innerPadding * 2
+                                    onClicked: tabsRoot.currentIndex = index
+                                }
+
+                                DragHandler {
+                                    id: dragHandler
+                                    yAxis.enabled: false
+                                    target: null
+
+                                    property real startX: 0
+
+                                    onActiveChanged: {
+                                        if (active) {
+                                            startX = index * tabWidth
+                                            tabsRoot.currentIndex = index
+                                            tabsContainer.draggingIndex = index
+                                            tabsContainer.draggingX = startX
+                                        } else if (tabsContainer.draggingIndex === index) {
+                                            var targetIdx = Math.max(0, Math.min(tabsModel.count - 1,
+                                                                     Math.round(tabsContainer.draggingX / tabWidth)))
+                                            if (targetIdx !== index) {
+                                                tabsModel.move(index, targetIdx, 1)
+                                                tabsRoot.currentIndex = targetIdx
+                                            }
+                                            tabsContainer.draggingIndex = -1
+                                        }
+                                    }
+
+                                    onCentroidChanged: {
+                                        if (active && tabsContainer.draggingIndex === index) {
+                                            var delta = centroid.position.x - centroid.pressPosition.x
+                                            tabsContainer.draggingX = Math.max(0,
+                                                Math.min((tabsModel.count - 1) * tabWidth, startX + delta))
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                ToolButton {
-                    id: addTabButton
-                    text: "+"
-                    focusPolicy: Qt.NoFocus
-                    Layout.fillHeight: true
-                    padding: innerPadding
+                Rectangle {
+                    id: addTabBtn
+                    width: tabBarHeight - 4
+                    height: tabBarHeight - 4
+                    anchors.verticalCenter: parent ? parent.verticalCenter : undefined
                     Layout.alignment: Qt.AlignVCenter
-                    onClicked: tabsRoot.addTab()
+                    Layout.rightMargin: 4
+                    Layout.leftMargin: 4
+                    color: "transparent"
+                    border.color: Qt.rgba(appSettings.fontColor.r, appSettings.fontColor.g, appSettings.fontColor.b,
+                                          addBtnArea.containsMouse ? 1.0 : 0.4)
+                    border.width: 1
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "+"
+                        color: Qt.rgba(appSettings.fontColor.r, appSettings.fontColor.g, appSettings.fontColor.b,
+                                       addBtnArea.containsMouse ? 1.0 : 0.5)
+                        font.pixelSize: 14
+                        font.family: "monospace"
+                    }
+
+                    MouseArea {
+                        id: addBtnArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: tabsRoot.addTab()
+                    }
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.NoButton
+                onWheel: function(wheel) {
+                    var delta = wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : wheel.angleDelta.x
+                    var maxX = Math.max(0, tabsFlickable.contentWidth - tabsFlickable.width)
+                    tabsRoot.scrollTargetX = Math.max(0, Math.min(maxX, tabsRoot.scrollTargetX - delta))
+                    tabsFlickable.contentX = tabsRoot.scrollTargetX
                 }
             }
         }
@@ -125,7 +321,7 @@ Item {
             id: stack
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: tabBar.currentIndex
+            currentIndex: tabsRoot.currentIndex
 
             Repeater {
                 model: tabsModel
@@ -137,14 +333,22 @@ Item {
                             activate()
                         }
                     }
-                    onTitleChanged: tabsModel.setProperty(index, "title", normalizeTitle(title))
+                    onTitleChanged: {
+                        tabsModel.setProperty(index, "title", normalizeTitle(title))
+                        tabsRoot.titleRevision++
+                    }
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     onSessionFinished: tabsRoot.closeTab(index)
                     onTerminalSizeChanged: updateTerminalSize()
 
+                    tabCount: tabsModel.count
+                    activeTabIndex: tabsRoot.currentIndex
+                    tabTitles: tabsRoot.collectTitles()
+                    onTabClicked: function(idx) { tabsRoot.currentIndex = idx }
+                    onAddTabClicked: tabsRoot.addTab()
+
                     function updateTerminalSize() {
-                        // Every tab will have the same size so we can simply take the first one.
                         if (index == 0) {
                             tabsRoot.terminalSize = terminalSize
                         }

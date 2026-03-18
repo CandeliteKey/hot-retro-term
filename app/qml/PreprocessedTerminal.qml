@@ -29,6 +29,8 @@ import "utils.js" as Utils
 Item{
     id: terminalContainer
     signal sessionFinished()
+    signal tabClicked(int index)
+    signal addTabClicked()
 
     property size virtualResolution: Qt.size(kterminal.totalWidth, kterminal.totalHeight)
     property alias mainTerminal: kterminal
@@ -44,6 +46,10 @@ Item{
 
     property size terminalSize: kterminal.terminalSize
     property size fontMetrics: kterminal.fontMetrics
+
+    property int tabCount: 0
+    property int activeTabIndex: 0
+    property var tabTitles: []
 
     // Manage copy and paste
     Connections {
@@ -141,6 +147,21 @@ Item{
             }
         }
 
+        AsciiTabBar {
+            id: asciiTabBar
+            x: 0
+            y: 0
+            width: kterminal.width
+            height: kterminal.fontMetrics.height
+            tabCount: terminalContainer.tabCount
+            activeTabIndex: terminalContainer.activeTabIndex
+            tabTitles: terminalContainer.tabTitles
+            fontColor: appSettings.fontColor
+            backgroundColor: appSettings.backgroundColor
+            charMetrics: kterminal.fontMetrics
+            termFont: kterminal.font
+        }
+
         function handleFontChanged(fontFamily, pixelSize, lineSpacing, screenScaling, fontWidth, fallbackFontFamily, lowResolutionFont) {
             kterminal.lineSpacing = lineSpacing;
             kterminal.antialiasText = !lowResolutionFont;
@@ -188,8 +209,8 @@ Item{
         }
         Component.onCompleted: {
             appSettings.fontManager.terminalFontChanged.connect(handleFontChanged);
-            appSettings.fontManager.refresh()
-            startSession();
+            appSettings.fontManager.emitCurrentFont();
+            Qt.callLater(startSession);
         }
         Component.onDestruction: {
             appSettings.fontManager.terminalFontChanged.disconnect(handleFontChanged);
@@ -233,10 +254,22 @@ Item{
         }
         onPressed: function(mouse) {
             kterminal.forceActiveFocus()
+            var coord = correctDistortion(mouse.x, mouse.y);
+            // Intercept clicks on the ASCII tab bar (top row of kterminal)
+            if (asciiTabBar.visible && coord.y >= 0 && coord.y < kterminal.fontMetrics.height) {
+                var tabIdx = asciiTabBar.hitTest(coord.x)
+                if (tabIdx >= 0) {
+                    terminalContainer.tabClicked(tabIdx)
+                    return
+                }
+                if (asciiTabBar.hitTestAddButton(coord.x)) {
+                    terminalContainer.addTabClicked()
+                    return
+                }
+            }
             if ((!kterminal.terminalUsesMouse || mouse.modifiers & Qt.ShiftModifier) && mouse.button == Qt.RightButton) {
                 contextmenu.popup();
             } else {
-                var coord = correctDistortion(mouse.x, mouse.y);
                 kterminal.simulateMousePress(coord.x, coord.y, mouse.button, mouse.buttons, mouse.modifiers)
             }
         }

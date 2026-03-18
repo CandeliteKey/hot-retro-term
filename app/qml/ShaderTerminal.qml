@@ -140,6 +140,7 @@ Item {
         id: terminalFrameLoader
 
         active: appSettings.frameEnabled
+        asynchronous: true
 
         width: staticShader.width
         height: staticShader.height
