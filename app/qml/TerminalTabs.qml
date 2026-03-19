@@ -39,6 +39,44 @@ Item {
 
     property int titleRevision: 0
 
+    // Split pane state
+    property var splitTrees: []
+    property int nextPaneId: 0
+    property int focusedPaneId: -1
+    property bool isCurrentTab: true
+
+    // Terminal pool — terminals live here and are reparented into PaneTreeNode slots
+    property alias terminalPool: terminalPool
+    property var _terminals: ({})
+
+    Item {
+        id: terminalPool
+        visible: false
+    }
+
+    function createTerminal(paneId) {
+        var comp = Qt.createComponent("TerminalContainer.qml")
+        if (comp.status !== Component.Ready) {
+            console.error("TerminalPool: failed to create component:", comp.errorString())
+            return null
+        }
+        var obj = comp.createObject(terminalPool, { paneId: paneId })
+        _terminals[paneId] = obj
+        return obj
+    }
+
+    function getTerminal(paneId) {
+        return _terminals[paneId] || null
+    }
+
+    function destroyTerminal(paneId) {
+        var t = _terminals[paneId]
+        if (t) {
+            t.destroy()
+            delete _terminals[paneId]
+        }
+    }
+
     function collectTitles() {
         titleRevision; // binding dependency — incremented on title changes
         var titles = []
@@ -55,18 +93,130 @@ Item {
     }
 
     function addTab() {
+        var paneId = nextPaneId++
+        createTerminal(paneId)
         tabsModel.append({ title: "" })
+        var newTrees = splitTrees.slice()
+        newTrees.push({ type: "terminal", paneId: paneId })
+        splitTrees = newTrees
         tabsRoot.currentIndex = tabsModel.count - 1
+        focusedPaneId = paneId
     }
 
     function closeTab(index) {
+        // Destroy all terminals belonging to this tab
+        var tree = splitTrees[index]
+        if (tree) {
+            var paneIds = collectTerminals(tree)
+            for (var i = 0; i < paneIds.length; i++)
+                destroyTerminal(paneIds[i])
+        }
+
         if (tabsModel.count <= 1) {
             terminalWindow.close()
             return
         }
 
+        var newTrees = splitTrees.slice()
+        newTrees.splice(index, 1)
+        splitTrees = newTrees
         tabsModel.remove(index)
         tabsRoot.currentIndex = Math.min(tabsRoot.currentIndex, tabsModel.count - 1)
+        if (splitTrees[tabsRoot.currentIndex]) {
+            focusedPaneId = findFirstTerminal(splitTrees[tabsRoot.currentIndex])
+        }
+    }
+
+    function splitPane(orientation) {
+        var tree = splitTrees[currentIndex]
+        if (!tree) return
+        if (countTerminals(tree) >= 4) return
+        var newPaneId = nextPaneId++
+        createTerminal(newPaneId)
+        var newTrees = splitTrees.slice()
+        newTrees[currentIndex] = replaceNode(tree, focusedPaneId, {
+            type: "split", orientation: orientation, ratio: 0.5,
+            first: { type: "terminal", paneId: focusedPaneId },
+            second: { type: "terminal", paneId: newPaneId }
+        })
+        splitTrees = newTrees
+        focusedPaneId = newPaneId
+    }
+
+    function closePane(paneId) {
+        var tree = splitTrees[currentIndex]
+        if (!tree) return
+        var termCount = countTerminals(tree)
+        if (termCount <= 1) {
+            closeTab(currentIndex)
+            return
+        }
+        destroyTerminal(paneId)
+        var newTrees = splitTrees.slice()
+        newTrees[currentIndex] = removeNode(tree, paneId)
+        splitTrees = newTrees
+        focusedPaneId = findFirstTerminal(splitTrees[currentIndex])
+    }
+
+    function moveFocus(direction) {
+        // Simple heuristic: find adjacent pane in the tree
+        var tree = splitTrees[currentIndex]
+        if (!tree) return
+        var allPanes = collectTerminals(tree)
+        if (allPanes.length <= 1) return
+        var currentIdx = allPanes.indexOf(focusedPaneId)
+        if (currentIdx < 0) return
+        var targetIdx = currentIdx
+        if (direction === "right" || direction === "down") {
+            targetIdx = (currentIdx + 1) % allPanes.length
+        } else {
+            targetIdx = (currentIdx - 1 + allPanes.length) % allPanes.length
+        }
+        focusedPaneId = allPanes[targetIdx]
+    }
+
+    // --- Tree helpers ---
+
+    function countTerminals(node) {
+        if (!node) return 0
+        if (node.type === "terminal") return 1
+        return countTerminals(node.first) + countTerminals(node.second)
+    }
+
+    function collectTerminals(node) {
+        if (!node) return []
+        if (node.type === "terminal") return [node.paneId]
+        return collectTerminals(node.first).concat(collectTerminals(node.second))
+    }
+
+    function findFirstTerminal(node) {
+        if (!node) return -1
+        if (node.type === "terminal") return node.paneId
+        return findFirstTerminal(node.first)
+    }
+
+    function replaceNode(node, paneId, newNode) {
+        if (!node) return node
+        if (node.type === "terminal") return node.paneId === paneId ? newNode : node
+        return {
+            type: "split", orientation: node.orientation, ratio: node.ratio,
+            first: replaceNode(node.first, paneId, newNode),
+            second: replaceNode(node.second, paneId, newNode)
+        }
+    }
+
+    function removeNode(node, paneId) {
+        if (!node) return node
+        if (node.type === "terminal") return node
+        if (node.first && node.first.type === "terminal" && node.first.paneId === paneId)
+            return node.second
+        if (node.second && node.second.type === "terminal" && node.second.paneId === paneId)
+            return node.first
+        return {
+            type: "split", orientation: node.orientation, ratio: node.ratio,
+            first: removeNode(node.first, paneId),
+            second: removeNode(node.second, paneId)
+        }
     }
 
     function ensureTabVisible(idx) {
@@ -79,7 +229,16 @@ Item {
         tabsFlickable.contentX = scrollTargetX
     }
 
-    onCurrentIndexChanged: ensureTabVisible(currentIndex)
+    onCurrentIndexChanged: {
+        ensureTabVisible(currentIndex)
+        isCurrentTab = true
+        if (splitTrees[currentIndex]) {
+            focusedPaneId = findFirstTerminal(splitTrees[currentIndex])
+        }
+    }
+
+    // Expose tabsModel so PaneTreeNode can reference it via splitManager
+    property alias tabsModel: tabsModel
 
     ListModel {
         id: tabsModel
@@ -325,34 +484,11 @@ Item {
 
             Repeater {
                 model: tabsModel
-                TerminalContainer {
-                    property bool shouldHaveFocus: terminalWindow.active && StackLayout.isCurrentItem
-                    isActive: StackLayout.isCurrentItem
-                    onShouldHaveFocusChanged: {
-                        if (shouldHaveFocus) {
-                            activate()
-                        }
-                    }
-                    onTitleChanged: {
-                        tabsModel.setProperty(index, "title", normalizeTitle(title))
-                        tabsRoot.titleRevision++
-                    }
+                PaneTreeNode {
+                    treeData: tabsRoot.splitTrees[index] || { type: "terminal", paneId: 0 }
+                    splitManager: tabsRoot
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    onSessionFinished: tabsRoot.closeTab(index)
-                    onTerminalSizeChanged: updateTerminalSize()
-
-                    tabCount: tabsModel.count
-                    activeTabIndex: tabsRoot.currentIndex
-                    tabTitles: tabsRoot.collectTitles()
-                    onTabClicked: function(idx) { tabsRoot.currentIndex = idx }
-                    onAddTabClicked: tabsRoot.addTab()
-
-                    function updateTerminalSize() {
-                        if (index == 0) {
-                            tabsRoot.terminalSize = terminalSize
-                        }
-                    }
                 }
             }
         }
