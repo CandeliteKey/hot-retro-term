@@ -43,6 +43,9 @@ Item{
     property alias title: ksession.title
     property alias kterminal: kterminal
     property bool isActive: false
+    onIsActiveChanged: {
+        if (!isActive && commandPalette.isOpen) commandPalette.close()
+    }
 
     property size terminalSize: kterminal.terminalSize
     property size fontMetrics: kterminal.fontMetrics
@@ -50,6 +53,10 @@ Item{
     property int tabCount: 0
     property int activeTabIndex: 0
     property var tabTitles: []
+
+    property bool showDividerRight: false
+    property bool showDividerBottom: false
+    property int paneId: -1
 
     // Manage copy and paste
     Connections {
@@ -68,6 +75,21 @@ Item{
             if (terminalContainer.isActive) {
                 kterminal.pasteClipboard()
             }
+        }
+    }
+    Connections {
+        target: commandPaletteAction
+
+        onTriggered: {
+            if (terminalContainer.isActive) {
+                commandPalette.toggle()
+            }
+        }
+    }
+    Connections {
+        target: kterminal
+        function onUrlActivated(url) {
+            Qt.openUrlExternally(url)
         }
     }
 
@@ -162,6 +184,77 @@ Item{
             termFont: kterminal.font
         }
 
+        AsciiDivider {
+            id: rightDivider
+            visible: terminalContainer.showDividerRight
+            orientation: Qt.Horizontal
+            anchors.right: parent.right
+            y: 0
+            width: kterminal.fontMetrics.width
+            height: kterminal.height
+            fontColor: appSettings.fontColor
+            backgroundColor: appSettings.backgroundColor
+            charMetrics: kterminal.fontMetrics
+            termFont: kterminal.font
+            z: 10
+        }
+
+        AsciiDivider {
+            id: bottomDivider
+            visible: terminalContainer.showDividerBottom
+            orientation: Qt.Vertical
+            anchors.bottom: parent.bottom
+            x: 0
+            width: kterminal.width
+            height: kterminal.fontMetrics.height
+            fontColor: appSettings.fontColor
+            backgroundColor: appSettings.backgroundColor
+            charMetrics: kterminal.fontMetrics
+            termFont: kterminal.font
+            z: 10
+        }
+
+        CommandPalette {
+            id: commandPalette
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: kterminal.fontMetrics.height * 3
+            width: Math.min(paletteWidthChars * kterminal.fontMetrics.width, kterminal.width)
+            fontColor: appSettings.fontColor
+            backgroundColor: appSettings.backgroundColor
+            charMetrics: kterminal.fontMetrics
+            termFont: kterminal.font
+
+            onCommandTriggered: function(actionId) {
+                var actions = {
+                    "newWindow":  newWindowAction,
+                    "newTab":     newTabAction,
+                    "closeTab":   closeTabAction,
+                    "copy":       copyAction,
+                    "paste":      pasteAction,
+                    "fullscreen": fullscreenAction,
+                    "settings":   showsettingsAction,
+                    "zoomIn":     zoomIn,
+                    "zoomOut":    zoomOut,
+                    "quit":       quitAction,
+                    "splitRight": splitVerticalAction,
+                    "splitDown":  splitHorizontalAction
+                }
+                if (actionId in actions) actions[actionId].trigger()
+            }
+            onProfileRequested: function(index) {
+                appSettings.loadProfile(index)
+            }
+            onToggleRequested: function(prop) {
+                var defaults = {
+                    bloom: 0.55, burnIn: 0.25, staticNoise: 0.12, jitter: 0.2,
+                    glowingLine: 0.2, screenCurvature: 0.5, flickering: 0.1,
+                    horizontalSync: 0.1, rgbShift: 0.2, chromaColor: 0.2, ambientLight: 0.3
+                }
+                appSettings[prop] = appSettings[prop] > 0 ? 0.0 : (defaults[prop] || 0.5)
+            }
+            onClosed: kterminal.forceActiveFocus()
+        }
+
         function handleFontChanged(fontFamily, pixelSize, lineSpacing, screenScaling, fontWidth, fallbackFontFamily, lowResolutionFont) {
             kterminal.lineSpacing = lineSpacing;
             kterminal.antialiasText = !lowResolutionFont;
@@ -253,8 +346,19 @@ Item{
             kterminal.simulateMouseDoubleClick(coord.x, coord.y, mouse.button, mouse.buttons, mouse.modifiers);
         }
         onPressed: function(mouse) {
-            kterminal.forceActiveFocus()
             var coord = correctDistortion(mouse.x, mouse.y);
+            // If palette is open, consume click and close if outside palette bounds
+            if (commandPalette.isOpen) {
+                var px = commandPalette.x
+                var py = commandPalette.y
+                var pw = commandPalette.width
+                var ph = commandPalette.totalHeight
+                if (coord.x < px || coord.x > px + pw || coord.y < py || coord.y > py + ph) {
+                    commandPalette.close()
+                }
+                return
+            }
+            kterminal.forceActiveFocus()
             // Intercept clicks on the ASCII tab bar (top row of kterminal)
             if (asciiTabBar.visible && coord.y >= 0 && coord.y < kterminal.fontMetrics.height) {
                 var tabIdx = asciiTabBar.hitTest(coord.x)

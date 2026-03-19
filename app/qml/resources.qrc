@@ -23,6 +23,10 @@
         <file>TerminalContainer.qml</file>
         <file>TerminalTabs.qml</file>
         <file>AsciiTabBar.qml</file>
+        <file>AsciiDivider.qml</file>
+        <file>PaneTreeNode.qml</file>
+        <file>PaneSplitContainer.qml</file>
+        <file>CommandPalette.qml</file>
         <file>images/crt256.png</file>
         <file>utils.js</file>
         <file>images/allNoise512.png</file>

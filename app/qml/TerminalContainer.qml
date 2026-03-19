@@ -34,6 +34,10 @@ ShaderTerminal {
     property int activeTabIndex: 0
     property var tabTitles: []
 
+    property bool showDividerRight: false
+    property bool showDividerBottom: false
+    property int paneId: -1
+
     property bool loadBloomEffect: appSettings.bloom > 0 || appSettings._frameShininess > 0
 
     id: mainShader
@@ -58,10 +62,22 @@ ShaderTerminal {
         tabTitles: mainShader.tabTitles
         onTabClicked: function(idx) { mainShader.tabClicked(idx) }
         onAddTabClicked: mainShader.addTabClicked()
+        showDividerRight: mainShader.showDividerRight
+        showDividerBottom: mainShader.showDividerBottom
+        paneId: mainShader.paneId
     }
 
     function activate() {
         terminal.mainTerminal.forceActiveFocus()
+    }
+
+    function refresh() {
+        terminal.mainTerminal.update()
+        // Force texture regeneration after reparenting by toggling live
+        var src = terminal.mainSource
+        src.live = false
+        src.scheduleUpdate()
+        src.live = true
     }
 
     //  EFFECTS  ////////////////////////////////////////////////////////////////
