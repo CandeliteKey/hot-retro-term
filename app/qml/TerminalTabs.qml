@@ -48,6 +48,7 @@ Item {
     // Terminal pool — terminals live here and are reparented into PaneTreeNode slots
     property alias terminalPool: terminalPool
     property var _terminals: ({})
+    property var _terminalComponent: null
 
     Item {
         id: terminalPool
@@ -55,12 +56,14 @@ Item {
     }
 
     function createTerminal(paneId) {
-        var comp = Qt.createComponent("TerminalContainer.qml")
-        if (comp.status !== Component.Ready) {
-            console.error("TerminalPool: failed to create component:", comp.errorString())
+        if (!_terminalComponent) {
+            _terminalComponent = Qt.createComponent("TerminalContainer.qml")
+        }
+        if (_terminalComponent.status !== Component.Ready) {
+            console.error("TerminalPool: failed to create component:", _terminalComponent.errorString())
             return null
         }
-        var obj = comp.createObject(terminalPool, { paneId: paneId })
+        var obj = _terminalComponent.createObject(terminalPool, { paneId: paneId })
         _terminals[paneId] = obj
         return obj
     }

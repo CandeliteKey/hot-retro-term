@@ -303,7 +303,7 @@ Item{
         Component.onCompleted: {
             appSettings.fontManager.terminalFontChanged.connect(handleFontChanged);
             appSettings.fontManager.emitCurrentFont();
-            Qt.callLater(startSession);
+            startSession();
         }
         Component.onDestruction: {
             appSettings.fontManager.terminalFontChanged.disconnect(handleFontChanged);
