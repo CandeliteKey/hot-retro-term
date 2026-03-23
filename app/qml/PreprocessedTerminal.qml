@@ -255,6 +255,37 @@ Item{
             onClosed: kterminal.forceActiveFocus()
         }
 
+        // Boot overlay: shows a blinking cursor immediately on terminal creation,
+        // disappears as soon as the first data arrives from the shell process.
+        Item {
+            id: bootOverlay
+            anchors.fill: parent
+            visible: true
+            z: 5
+
+            Text {
+                x: 0
+                y: terminalContainer.tabCount > 1 ? kterminal.fontMetrics.height : 0
+                text: "\u2588"
+                font: kterminal.font
+                color: appSettings.fontColor
+
+                SequentialAnimation on opacity {
+                    running: bootOverlay.visible
+                    loops: Animation.Infinite
+                    NumberAnimation { to: 0; duration: 500 }
+                    NumberAnimation { to: 1; duration: 500 }
+                }
+            }
+
+            Connections {
+                target: kterminal
+                function onReceivedData(text) {
+                    bootOverlay.visible = false
+                }
+            }
+        }
+
         function handleFontChanged(fontFamily, pixelSize, lineSpacing, screenScaling, fontWidth, fallbackFontFamily, lowResolutionFont) {
             kterminal.lineSpacing = lineSpacing;
             kterminal.antialiasText = !lowResolutionFont;
