@@ -108,20 +108,17 @@ Item {
                        node.treeData !== null &&
                        node.treeData.paneId === node.splitManager.focusedPaneId
             })
+            t.splitActive = Qt.binding(function() {
+                return node.splitManager ? node.splitManager.needsUnifiedCRT : false
+            })
+            t.isSplitLayout = Qt.binding(function() {
+                return node.splitManager ? node.splitManager.isSplitMode : false
+            })
             t.showDividerRight = Qt.binding(function() {
                 return node.treeData ? (node.treeData._showDividerRight || false) : false
             })
             t.showDividerBottom = Qt.binding(function() {
                 return node.treeData ? (node.treeData._showDividerBottom || false) : false
-            })
-            t.tabCount = Qt.binding(function() {
-                return node.splitManager ? node.splitManager.tabsModel.count : 0
-            })
-            t.activeTabIndex = Qt.binding(function() {
-                return node.splitManager ? node.splitManager.currentIndex : 0
-            })
-            t.tabTitles = Qt.binding(function() {
-                return node.splitManager ? node.splitManager.collectTitles() : []
             })
         }
 
@@ -132,11 +129,9 @@ Item {
                 if (node.splitManager && node.treeData)
                     node.splitManager.closePane(node.treeData.paneId)
             }
-            function onTabClicked(idx) {
-                if (node.splitManager) node.splitManager.currentIndex = idx
-            }
-            function onAddTabClicked() {
-                if (node.splitManager) node.splitManager.addTab()
+            function onPaneClicked() {
+                if (node.splitManager && node.treeData)
+                    node.splitManager.focusedPaneId = node.treeData.paneId
             }
             function onTitleChanged() {
                 var t = terminalSlot._claimedTerminal

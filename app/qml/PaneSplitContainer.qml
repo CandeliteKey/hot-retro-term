@@ -57,8 +57,8 @@ Item {
             height: parent.height
             source: container.firstData ? "PaneTreeNode.qml" : ""
             onLoaded: {
-                item.anchors.fill = hFirst  // Fix B: PaneTreeNode が Loader を fill するよう設定
-                item.treeData = container.firstData
+                item.anchors.fill = hFirst
+                item.treeData = Qt.binding(function() { return container.firstData })
                 item.splitManager = Qt.binding(function() { return container.mgr })
             }
         }
@@ -69,8 +69,8 @@ Item {
             height: parent.height
             source: container.secondData ? "PaneTreeNode.qml" : ""
             onLoaded: {
-                item.anchors.fill = hSecond  // Fix B
-                item.treeData = container.secondData
+                item.anchors.fill = hSecond
+                item.treeData = Qt.binding(function() { return container.secondData })
                 item.splitManager = Qt.binding(function() { return container.mgr })
             }
         }
@@ -88,8 +88,8 @@ Item {
             height: parent.height * ratio
             source: container.firstData ? "PaneTreeNode.qml" : ""
             onLoaded: {
-                item.anchors.fill = vFirst  // Fix B
-                item.treeData = container.firstData
+                item.anchors.fill = vFirst
+                item.treeData = Qt.binding(function() { return container.firstData })
                 item.splitManager = Qt.binding(function() { return container.mgr })
             }
         }
@@ -100,10 +100,31 @@ Item {
             height: parent.height * (1 - ratio)
             source: container.secondData ? "PaneTreeNode.qml" : ""
             onLoaded: {
-                item.anchors.fill = vSecond  // Fix B
-                item.treeData = container.secondData
+                item.anchors.fill = vSecond
+                item.treeData = Qt.binding(function() { return container.secondData })
                 item.splitManager = Qt.binding(function() { return container.mgr })
             }
+        }
+    }
+
+    // Invisible drag handle at the split boundary for resize
+    MouseArea {
+        id: resizeHandle
+        z: 100
+        x: isHorizontal ? parent.width * ratio - 4 : 0
+        y: isHorizontal ? 0 : parent.height * ratio - 4
+        width:  isHorizontal ? 8 : parent.width
+        height: isHorizontal ? parent.height : 8
+        cursorShape: isHorizontal ? Qt.SplitHCursor : Qt.SplitVCursor
+
+        onPositionChanged: function(mouse) {
+            if (!pressed || !mgr || !data_) return
+            var mapped = mapToItem(container, mouse.x, mouse.y)
+            var newRatio = isHorizontal
+                ? mapped.x / container.width
+                : mapped.y / container.height
+            newRatio = Math.max(0.1, Math.min(0.9, newRatio))
+            mgr.updateSplitRatio(mgr.findFirstTerminal(data_.first), newRatio)
         }
     }
 }

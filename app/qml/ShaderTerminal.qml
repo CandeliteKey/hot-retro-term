@@ -23,10 +23,12 @@ import QtQuick 2.2
 import "utils.js" as Utils
 
 Item {
+    property bool splitActive: false
+
     function dynamicFragmentPath() {
         var rasterMode = appSettings.rasterization;
         var burnInOn = appSettings.burnIn > 0 ? 1 : 0;
-        var frameOn = appSettings.frameEnabled ? 1 : 0;
+        var frameOn = (appSettings.frameEnabled && !splitActive) ? 1 : 0;
         var chromaOn = appSettings.chromaColor > 0 ? 1 : 0;
         return "qrc:/shaders/terminal_dynamic_raster" + rasterMode +
                "_burn" + burnInOn +
@@ -38,8 +40,8 @@ Item {
     function staticFragmentPath() {
         var rgbShiftOn = appSettings.rgbShift > 0 ? 1 : 0;
         var bloomOn = appSettings.bloom > 0 ? 1 : 0;
-        var curvatureOn = (appSettings.screenCurvature > 0 || appSettings.frameSize > 0) ? 1 : 0;
-        var shineOn = appSettings.frameShininess > 0 ? 1 : 0;
+        var curvatureOn = (!splitActive && (appSettings.screenCurvature > 0 || appSettings.frameSize > 0)) ? 1 : 0;
+        var shineOn = (!splitActive && appSettings.frameShininess > 0) ? 1 : 0;
         return "qrc:/shaders/terminal_static_rgb" + rgbShiftOn +
                "_bloom" + bloomOn +
                "_curve" + curvatureOn +
@@ -54,8 +56,10 @@ Item {
     property color fontColor: appSettings.fontColor
     property color backgroundColor: appSettings.backgroundColor
 
-    property real screenCurvature: appSettings.screenCurvature * appSettings.screenCurvatureSize * terminalWindow.normalizedWindowScale
-    property real frameSize: appSettings.frameSize * terminalWindow.normalizedWindowScale
+    property real screenCurvature: splitActive ? 0
+        : appSettings.screenCurvature * appSettings.screenCurvatureSize * terminalWindow.normalizedWindowScale
+    property real frameSize: splitActive ? 0
+        : appSettings.frameSize * terminalWindow.normalizedWindowScale
 
     property real chromaColor: appSettings.chromaColor
 
@@ -73,7 +77,7 @@ Item {
         id: dynamicShader
 
         property ShaderEffectSource screenBuffer: frameBuffer
-        property ShaderEffectSource burnInSource: burnInEffect.effectSource
+        property ShaderEffectSource burnInSource: burnInEffect ? burnInEffect.effectSource : null
         property ShaderEffectSource frameSource: terminalFrameLoader.item
 
         property color fontColor: parent.fontColor
@@ -89,8 +93,8 @@ Item {
 
         // Fast burnin properties
         property real burnIn: appSettings.burnIn
-        property real burnInLastUpdate: burnInEffect.lastUpdate
-        property real burnInTime: burnInEffect.burnInFadeTime
+        property real burnInLastUpdate: burnInEffect ? burnInEffect.lastUpdate : 0
+        property real burnInTime: burnInEffect ? burnInEffect.burnInFadeTime : 0
 
         property real jitter: appSettings.jitter
         property size jitterDisplacement: Qt.size(0.007 * jitter, 0.002 * jitter)
@@ -113,6 +117,7 @@ Item {
 
         anchors.fill: parent
         blending: false
+        visible: !splitActive
 
         Image {
             id: noiseTexture
@@ -139,7 +144,7 @@ Item {
     Loader {
         id: terminalFrameLoader
 
-        active: appSettings.frameEnabled
+        active: appSettings.frameEnabled && !splitActive
         asynchronous: true
 
         width: staticShader.width

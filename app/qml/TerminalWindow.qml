@@ -137,7 +137,7 @@ ApplicationWindow {
     Action {
         id: splitHorizontalAction
         text: qsTr("Split Down")
-        shortcut: appSettings.isMacOS ? "Meta+Shift+D" : "Ctrl+Shift+H"
+        shortcut: appSettings.isMacOS ? "Meta+Shift+E" : "Ctrl+Shift+E"
         onTriggered: terminalTabs.splitPane(Qt.Vertical)
     }
     Shortcut {

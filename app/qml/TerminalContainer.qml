@@ -25,23 +25,21 @@ import "utils.js" as Utils
 ShaderTerminal {
     property alias title: terminal.title
     property alias terminalSize: terminal.terminalSize
+    property alias mainTerminal: terminal.mainTerminal
     property bool isActive: false
     signal sessionFinished()
-    signal tabClicked(int index)
-    signal addTabClicked()
-
-    property int tabCount: 0
-    property int activeTabIndex: 0
-    property var tabTitles: []
+    signal paneClicked()
 
     property bool showDividerRight: false
     property bool showDividerBottom: false
+    property bool splitActive: false
+    property bool isSplitLayout: false
     property int paneId: -1
 
-    property bool loadBloomEffect: appSettings.bloom > 0 || appSettings._frameShininess > 0
+    property bool loadBloomEffect: (appSettings.bloom > 0 || appSettings._frameShininess > 0) && !splitActive
 
     id: mainShader
-    opacity: appSettings.windowOpacity * 0.3 + 0.7
+    opacity: splitActive ? 1.0 : (appSettings.windowOpacity * 0.3 + 0.7)
 
     source: terminal.mainSource
     burnInEffect: terminal.burnInEffect
@@ -57,13 +55,11 @@ ShaderTerminal {
         anchors.fill: parent
         isActive: mainShader.isActive
         onSessionFinished: mainShader.sessionFinished()
-        tabCount: mainShader.tabCount
-        activeTabIndex: mainShader.activeTabIndex
-        tabTitles: mainShader.tabTitles
-        onTabClicked: function(idx) { mainShader.tabClicked(idx) }
-        onAddTabClicked: mainShader.addTabClicked()
+        onPaneClicked: mainShader.paneClicked()
         showDividerRight: mainShader.showDividerRight
         showDividerBottom: mainShader.showDividerBottom
+        splitActive: mainShader.splitActive
+        isSplitLayout: mainShader.isSplitLayout
         paneId: mainShader.paneId
     }
 

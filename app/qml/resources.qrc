@@ -24,6 +24,7 @@
         <file>TerminalTabs.qml</file>
         <file>AsciiTabBar.qml</file>
         <file>AsciiDivider.qml</file>
+        <file>AsciiFocusBorder.qml</file>
         <file>PaneTreeNode.qml</file>
         <file>PaneSplitContainer.qml</file>
         <file>CommandPalette.qml</file>
