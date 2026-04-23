@@ -36,9 +36,8 @@ Makefile*
 
 *.xcf
 
-# Ubuntu SDk
+# Ubuntu SDK metadata (*.excludes only — *.json removed to allow data files)
 *.excludes
-*.json
 
 # Excludes compiled files
 
