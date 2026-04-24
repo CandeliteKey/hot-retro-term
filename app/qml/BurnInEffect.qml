@@ -35,6 +35,10 @@ Loader {
     property real _minBurnInFadeTime: appSettings.minBurnInFadeTime
     property real _maxBurnInFadeTime: appSettings.maxBurnInFadeTime
 
+    // Injectable source/trigger — defaults to the enclosing PreprocessedTerminal's ids
+    property var textSource: null
+    property var triggerTarget: null
+
     active: appSettings.burnIn !== 0
 
     anchors.fill: parent
@@ -75,7 +79,7 @@ Loader {
             visible: false
 
             Connections {
-                target: kterminal
+                target: burnInEffect.triggerTarget !== null ? burnInEffect.triggerTarget : kterminal
 
                 onImagePainted: {
                     completelyUpdate()
@@ -112,7 +116,7 @@ Loader {
 
             property real time: timeManager.time
 
-            property variant txt_source: kterminalSource
+            property variant txt_source: burnInEffect.textSource !== null ? burnInEffect.textSource : kterminalSource
             property variant burnInSource: burnInEffectSource
             property real burnInTime: burnInFadeTime
             property real burnInLastUpdate: burnInEffect.lastUpdate

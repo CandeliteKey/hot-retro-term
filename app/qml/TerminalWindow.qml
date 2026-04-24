@@ -121,7 +121,40 @@ ApplicationWindow {
         id: closeTabAction
         text: qsTr("Close Tab")
         shortcut: appSettings.isMacOS ? "Meta+W" : "Ctrl+Shift+W"
-        onTriggered: terminalTabs.closeTab(terminalTabs.currentIndex)
+        onTriggered: terminalTabs.closePane(terminalTabs.focusedPaneId)
+    }
+    Action {
+        id: commandPaletteAction
+        text: qsTr("Command Palette")
+        shortcut: appSettings.isMacOS ? "Meta+Shift+P" : "Ctrl+Shift+P"
+    }
+    Action {
+        id: splitVerticalAction
+        text: qsTr("Split Right")
+        shortcut: appSettings.isMacOS ? "Meta+D" : "Ctrl+Shift+D"
+        onTriggered: terminalTabs.splitPane(Qt.Horizontal)
+    }
+    Action {
+        id: splitHorizontalAction
+        text: qsTr("Split Down")
+        shortcut: appSettings.isMacOS ? "Meta+Shift+E" : "Ctrl+Shift+E"
+        onTriggered: terminalTabs.splitPane(Qt.Vertical)
+    }
+    Shortcut {
+        sequence: appSettings.isMacOS ? "Meta+Shift+Left"  : "Ctrl+Shift+Left"
+        onActivated: terminalTabs.moveFocus("left")
+    }
+    Shortcut {
+        sequence: appSettings.isMacOS ? "Meta+Shift+Right" : "Ctrl+Shift+Right"
+        onActivated: terminalTabs.moveFocus("right")
+    }
+    Shortcut {
+        sequence: appSettings.isMacOS ? "Meta+Shift+Up"    : "Ctrl+Shift+Up"
+        onActivated: terminalTabs.moveFocus("up")
+    }
+    Shortcut {
+        sequence: appSettings.isMacOS ? "Meta+Shift+Down"  : "Ctrl+Shift+Down"
+        onActivated: terminalTabs.moveFocus("down")
     }
     Shortcut {
         sequence: appSettings.isMacOS ? "Meta+1" : "Alt+1"

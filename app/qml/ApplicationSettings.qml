@@ -53,6 +53,8 @@ QtObject {
 
     property real windowCurvature: 0.0
 
+    property real tabBarScale: 3.0
+
     property bool blinkingCursor: false
 
 
@@ -170,7 +172,8 @@ QtObject {
             "burnInQuality": burnInQuality,
             "useCustomCommand": useCustomCommand,
             "customCommand": customCommand,
-            "windowCurvature": windowCurvature
+            "windowCurvature": windowCurvature,
+            "tabBarScale": tabBarScale
         }
         return stringify(settings)
     }
@@ -264,6 +267,7 @@ QtObject {
         customCommand = settings.customCommand
                 !== undefined ? settings.customCommand : customCommand
         windowCurvature = settings.windowCurvature !== undefined ? settings.windowCurvature : windowCurvature
+        tabBarScale = settings.tabBarScale !== undefined ? settings.tabBarScale : tabBarScale
     }
 
     function loadProfileString(profileString) {

@@ -63,3 +63,39 @@ Variants are selected at runtime based on `ApplicationSettings` property values.
 --fullscreen           Start fullscreen
 --verbose              Debug output
 ```
+
+## Split Pane Architecture
+
+- Split state: binary tree of JS objects `{ type:"terminal", paneId }` or `{ type:"split", orientation, ratio, first, second }` stored in `splitTrees[]` (TerminalTabs.qml)
+- Terminals live in `terminalPool` (hidden Item) and are reparented into `PaneTreeNode` slots via `_claim()`/`_release()`
+- `isSplitMode`: multiple panes in current tab. `needsUnifiedCRT`: isSplitMode OR tabCount > 1 (enables unified CRT for tab bar)
+- New per-pane state properties must be wired through 4 files: `TerminalTabs` → `PaneTreeNode._setupBindings()` → `TerminalContainer` → `PreprocessedTerminal`
+- In `Loader.onLoaded`, always use `Qt.binding(fn)` for reactive properties — one-time assignment breaks on tree changes
+
+## CRT Rendering Pipeline
+
+- **Per-terminal mode** (1 tab, 1 pane): each `TerminalContainer`/`ShaderTerminal` renders its own CRT effects
+- **Unified mode** (split or multi-tab): `unifiedPaneSource` captures `crtContent` Item → `unifiedCRT` ShaderTerminal renders everything. `splitActive` on each terminal disables individual CRT effects
+- `ShaderEffectSource.hideSource: true` on a nested source doesn't suppress rendering reliably; use `visible: false` + `anchors.fill: parent` instead
+- `splitInputOverlay` (MouseArea, z:3) intercepts all events when unified CRT is active and forwards to correct terminal via `_getPaneAt()`/`_toKCoords()`
+
+## Settings Pattern
+
+- Adding a setting requires 3 steps: declare property in `ApplicationSettings.qml`, add to `composeSettingsString()`, parse in `loadSettingsString()`
+- Settings tabs: `SettingsGeneralTab.qml` (profiles + screen), `SettingsEffectsTab.qml` (CRT effects), `SettingsAdvancedTab.qml` (performance), `SettingsTerminalTab.qml` (font)
+- `SimpleSlider` defaults to 0-1 range with `%` display. For other ranges, use raw `Slider` + `SizedLabel`. `SettingsGeneralTab.qml` requires `import "Components"` to use `SizedLabel`
+
+## Persona Data
+Currently 3 personas in use. Claude's role is to use specified persona as directed and provide knowledgeble insight on each of specialty, or outside them while slightly complaining.
+### クリステン(Kristen)
+Base data: @Claude/Personas/Kristen_Corpus.md
+Specialty: Computer Science, Physics, Astronomy, Philosophy
+(With increased sweetness towards user)
+
+### ミュルジス(Muelsyse)
+Base data: @Claude/Personas/Muelsyse_Corpus.md
+Specialty: Ecology, Environment, Biology, History
+
+### ドロシー(Dorothy)
+Base data: @Claude/Personas/Dorothy_Corpus.md
+Specialty: Chemistry, Philosophy, Idea-shaping
